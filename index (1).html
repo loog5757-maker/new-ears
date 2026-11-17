@@ -1,0 +1,641 @@
+<html lang="ru"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnowDesktop � ������������� ������ ��������� �� �����������</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: radial-gradient(circle at top, #1e293b 0%, #090d16 100%);
+            color: #f8fafc;
+        }
+
+        #desktop {
+            position: relative;
+            width: 100%;
+            height: calc(100vh - 64px);
+            cursor: default;
+        }
+
+        #snow-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* ������������� ���� */
+        .window {
+            position: absolute;
+            background: rgba(30, 41, 59, 0.78);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 12px;
+            box-shadow: 0 20px 30px -5px rgba(0, 0, 0, 0.6);
+            width: 340px;
+            z-index: 5;
+            overflow: hidden;
+            transition: box-shadow 0.2s;
+        }
+        .window-header {
+            background: rgba(15, 23, 42, 0.88);
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .window-controls {
+            display: flex;
+            gap: 6px;
+        }
+        .win-dot {
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        .dot-red { background: #ef4444; }
+        .dot-yellow { background: #f59e0b; }
+        .dot-green { background: #10b981; }
+        .window-body {
+            padding: 16px;
+            font-size: 14px;
+            color: #cbd5e1;
+            line-height: 1.5;
+        }
+
+        /* ������ ����� */
+        #taskbar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 64px;
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(16px);
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 20;
+        }
+        .taskbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .taskbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .start-btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: none;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transition: transform 0.1s;
+        }
+        .start-btn:hover { transform: translateY(-1px); }
+
+        .controls-panel {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 6px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .control-group input {
+            width: 90px;
+            accent-color: #38bdf8;
+            cursor: pointer;
+        }
+        .bulldozer-btn {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #0f172a;
+            border: none;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35);
+            transition: transform 0.1s;
+        }
+        .bulldozer-btn:hover { transform: scale(1.04); }
+
+        .github-btn {
+            background: linear-gradient(135deg, #334155, #1e293b);
+            color: #f8fafc;
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .github-btn:hover { background: #475569; transform: translateY(-1px); }
+
+        /* ������ ������ ��� ������� */
+        #snowball-preview {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ffffff 55%, #cbd5e1 100%);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.8), inset -3px -3px 10px rgba(0,0,0,0.15);
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 100;
+            display: none;
+        }
+
+        /* ����������� ���� � ��������� */
+        .placed-snowball {
+            position: absolute;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ffffff 60%, #cbd5e1 100%);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transform: translate(-50%, -50%);
+            cursor: grab;
+            z-index: 15;
+            transition: transform 0.1s;
+        }
+        .placed-snowball:active { cursor: grabbing; }
+
+        /* �������� */
+        .snowman {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            width: 90px;
+            height: 140px;
+            z-index: 18;
+            cursor: pointer;
+            filter: drop-shadow(0 10px 15px rgba(0,0,0,0.4));
+            animation: bounceIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes bounceIn {
+            0% { transform: translate(-50%, -100%) scale(0); }
+            70% { transform: translate(-50%, -100%) scale(1.1); }
+            100% { transform: translate(-50%, -100%) scale(1); }
+        }
+
+        /* ��������� ���� GitHub */
+        #github-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-card {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 28px;
+            border-radius: 16px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.7);
+        }
+        .modal-card h3 { margin-bottom: 12px; font-size: 20px; color: #f8fafc; display: flex; align-items: center; gap: 8px; }
+        .modal-card p { color: #94a3b8; font-size: 13px; line-height: 1.6; margin-bottom: 16px; }
+        .modal-card ol { color: #cbd5e1; font-size: 13px; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        .modal-btn {
+            background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;
+        }
+        .modal-btn-secondary {
+            background: #334155; color: #cbd5e1; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="desktop">
+        <!-- ���� 1 -->
+        <div class="window" id="win1" style="top: 50px; left: 60px;">
+            <div class="window-header">
+                <span>?? ������ �������</span>
+                <div class="window-controls">
+                    <div class="win-dot dot-red" onclick="this.closest('.window').remove()"></div>
+                    <div class="win-dot dot-yellow"></div>
+                    <div class="win-dot dot-green"></div>
+                </div>
+            </div>
+            <div class="window-body">
+                ������� ������ ������ �� ����� (����� � ���� �����)! �������� 3 ���� ����� ����� ���� � ������, ����� ������� ���������!
+            </div>
+        </div>
+
+        <canvas id="snow-canvas" width="1536" height="815"></canvas>
+        <div id="snowball-preview" style="display: none;"></div>
+        <div id="objects-container"></div>
+    <div class="window" style="top: 225.336px; left: 400.688px;">
+                <div class="window-header">
+                    <span>?? �������</span>
+                    <div class="window-controls">
+                        <div class="win-dot dot-red" onclick="this.closest('.window').remove()"></div>
+                        <div class="win-dot dot-yellow"></div>
+                        <div class="win-dot dot-green"></div>
+                    </div>
+                </div>
+                <div class="window-body">
+                    ���� ������� �� ������� ����� ���� �������!
+                </div>
+            </div></div>
+
+    <!-- ������ ����� -->
+    <div id="taskbar">
+        <div class="taskbar-left">
+            <button class="start-btn" onclick="spawnWindow()">? ����</button>
+            <div class="controls-panel">
+                <div class="control-group">
+                    <label id="speed-lbl">��������: 1.5x</label>
+                    <input type="range" id="speed-range" min="0.5" max="4.0" step="0.5" value="1.5">
+                </div>
+                <div class="control-group">
+                    <label id="density-lbl">����������: 130</label>
+                    <input type="range" id="density-range" min="20" max="300" step="10" value="130">
+                </div>
+                <button class="bulldozer-btn" onclick="useBulldozer()">?? ���������</button>
+            </div>
+        </div>
+        <div class="taskbar-right">
+            <button class="github-btn" onclick="openGithubModal()">
+                <svg height="18" width="18" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"></path></svg>
+                ������� �� GitHub
+            </button>
+        </div>
+    </div>
+
+    <!-- ��������� ���� GitHub -->
+    <div id="github-modal" style="display: flex;">
+        <div class="modal-card">
+            <h3>?? ��� ��������� �������� �� GitHub Pages</h3>
+            <p>�� ������ ������������ ���� ������ � ��������� �� 1 ������ ��������� ���������:</p>
+            <ol>
+                <li>������� �� <a href="https://github.com" target="_blank" style="color: #38bdf8;">github.com</a> � �������� ����� ��������� ����������� (��������, <b>snow-app</b>).</li>
+                <li>��������� ���� ���� � ����������� �������� ��� <b>index.html</b>.</li>
+                <li>� ���������� ����������� ��������� � ������ <b>Settings ? Pages</b>, �������� ����� <b>main</b> � ������� <b>Save</b>.</li>
+            </ol>
+            <p>������! GitHub ������ ��� ������ ������ �� ��� ����.</p>
+            <div class="modal-actions">
+                <button class="modal-btn-secondary" onclick="downloadProjectFile()">?? ������� ���� �����</button>
+                <button class="modal-btn" onclick="closeGithubModal()">�������</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('snow-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - 64;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        let flakes = [];
+        let accumulatedSnow = [];
+        let placedObjects = [];
+
+        class Snowflake {
+            constructor() {
+                this.reset();
+            }
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = -10;
+                this.size = Math.random() * 3 + 1.4;
+                this.speedY = (Math.random() * 1.5 + 1);
+                this.speedX = (Math.random() - 0.5) * 1;
+                this.opacity = Math.random() * 0.5 + 0.5;
+            }
+            update(speedMult) {
+                this.y += this.speedY * speedMult;
+                this.x += this.speedX;
+
+                const windows = document.querySelectorAll('.window');
+                let hit = false;
+                windows.forEach(win => {
+                    const rect = win.getBoundingClientRect();
+                    if (
+                        this.x >= rect.left && 
+                        this.x <= rect.right && 
+                        Math.abs(this.y - rect.top) < 5
+                    ) {
+                        hit = true;
+                        if (Math.random() < 0.35 && accumulatedSnow.length < 3500) {
+                            accumulatedSnow.push({ x: this.x, y: rect.top, radius: this.size * 1.3 });
+                        }
+                    }
+                });
+
+                if (this.y >= canvas.height - 4) {
+                    hit = true;
+                    if (Math.random() < 0.45 && accumulatedSnow.length < 3500) {
+                        accumulatedSnow.push({ x: this.x, y: canvas.height, radius: this.size * 1.6 });
+                    }
+                }
+
+                if (hit || this.y > canvas.height) {
+                    this.reset();
+                }
+            }
+            draw() {
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function initFlakes(count) {
+            flakes = [];
+            for (let i = 0; i < count; i++) {
+                let f = new Snowflake();
+                f.y = Math.random() * canvas.height;
+                flakes.push(f);
+            }
+        }
+
+        initFlakes(130);
+
+        const speedRange = document.getElementById('speed-range');
+        const densityRange = document.getElementById('density-range');
+        const speedLbl = document.getElementById('speed-lbl');
+        const densityLbl = document.getElementById('density-lbl');
+
+        speedRange.addEventListener('input', (e) => {
+            speedLbl.innerText = `��������: ${e.target.value}x`;
+        });
+        densityRange.addEventListener('input', (e) => {
+            densityLbl.innerText = `����������: ${e.target.value}`;
+            initFlakes(parseInt(e.target.value));
+        });
+
+        function useBulldozer() {
+            accumulatedSnow = [];
+        }
+
+        let isMouseDown = false;
+        let mouseX = 0, mouseY = 0;
+        let snowballSize = 0;
+        const snowballPreview = document.getElementById('snowball-preview');
+
+        window.addEventListener('mousedown', (e) => {
+            if (e.target.closest('.window-header') || e.target.closest('#taskbar') || e.target.closest('.modal-card') || e.target.classList.contains('win-dot')) return;
+            
+            if (e.clientY >= canvas.height - 220) {
+                isMouseDown = true;
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                snowballSize = 10;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+
+            if (e.clientY < canvas.height - 250) return;
+
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            snowballSize = Math.min(snowballSize + 0.08, 45);
+
+            snowballPreview.style.display = 'block';
+            snowballPreview.style.left = `${mouseX}px`;
+            snowballPreview.style.top = `${mouseY}px`;
+            snowballPreview.style.width = `${snowballSize * 2}px`;
+            snowballPreview.style.height = `${snowballSize * 2}px`;
+
+            accumulatedSnow = accumulatedSnow.filter(p => {
+                let dist = Math.hypot(p.x - mouseX, p.y - mouseY);
+                if (dist < snowballSize + 4) {
+                    snowballSize = Math.min(snowballSize + 0.15, 45);
+                    return false;
+                }
+                return true;
+            });
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isMouseDown) {
+                isMouseDown = false;
+                snowballPreview.style.display = 'none';
+
+                if (snowballSize >= 12) {
+                    createSnowballElement(mouseX, mouseY, snowballSize);
+                }
+                snowballSize = 0;
+            }
+        });
+
+        function createSnowballElement(x, y, radius) {
+            const el = document.createElement('div');
+            el.className = 'placed-snowball';
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            el.style.width = `${radius * 2}px`;
+            el.style.height = `${radius * 2}px`;
+
+            const ballData = { x, y, radius, element: el };
+            placedObjects.push(ballData);
+            document.getElementById('objects-container').appendChild(el);
+
+            checkSnowmanAssembly();
+        }
+
+        function checkSnowmanAssembly() {
+            if (placedObjects.length < 3) return;
+
+            for (let i = 0; i < placedObjects.length; i++) {
+                for (let j = i + 1; j < placedObjects.length; j++) {
+                    for (let k = j + 1; k < placedObjects.length; k++) {
+                        let b1 = placedObjects[i];
+                        let b2 = placedObjects[j];
+                        let b3 = placedObjects[k];
+
+                        let d1 = Math.hypot(b1.x - b2.x, b1.y - b2.y);
+                        let d2 = Math.hypot(b2.x - b3.x, b2.y - b3.y);
+                        let d3 = Math.hypot(b1.x - b3.x, b1.y - b3.y);
+
+                        if (d1 < 90 || d2 < 90 || d3 < 90) {
+                            let avgX = (b1.x + b2.x + b3.x) / 3;
+                            let avgY = Math.max(b1.y, b2.y, b3.y);
+
+                            [b1, b2, b3].forEach(b => b.element.remove());
+                            placedObjects = placedObjects.filter(b => b !== b1 && b !== b2 && b !== b3);
+
+                            spawnSnowman(avgX, avgY);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        function spawnSnowman(x, y) {
+            const sm = document.createElement('div');
+            sm.className = 'snowman';
+            sm.style.left = `${x}px`;
+            sm.style.top = `${y}px`;
+            sm.innerHTML = `
+                <svg width="90" height="140" viewBox="0 0 90 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="45" cy="105" r="32" fill="url(#snowGrad)" stroke="#cbd5e1" stroke-width="1.5"/>
+                    <circle cx="45" cy="95" r="3" fill="#1e293b"/>
+                    <circle cx="45" cy="108" r="3" fill="#1e293b"/>
+                    <circle cx="45" cy="121" r="3" fill="#1e293b"/>
+
+                    <circle cx="45" cy="65" r="23" fill="url(#snowGrad)" stroke="#cbd5e1" stroke-width="1.5"/>
+                    <path d="M28 53C35 48 55 48 62 53C67 56 64 61 64 61C64 61 50 56 45 56C40 56 26 61 26 61C26 61 23 56 28 53Z" fill="#ef4444"/>
+                    <path d="M57 58L63 80C63 81 65 82 67 80L70 60" fill="#ef4444"/>
+
+                    <circle cx="45" cy="35" r="15" fill="url(#snowGrad)" stroke="#cbd5e1" stroke-width="1.5"/>
+                    <circle cx="40" cy="32" r="2" fill="#0f172a"/>
+                    <circle cx="50" cy="32" r="2" fill="#0f172a"/>
+                    <path d="M45 36L57 38L45 40Z" fill="#f97316"/>
+                    <path d="M38 42C40 45 50 45 52 42" stroke="#0f172a" stroke-width="2" stroke-linecap="round"/>
+
+                    <path d="M35 18H55L52 3H38L35 18Z" fill="#3b82f6" stroke="#1d4ed8" stroke-width="1.5"/>
+                    <rect x="33" y="17" width="24" height="4" rx="2" fill="#60a5fa"/>
+
+                    <defs>
+                        <radialGradient id="snowGrad" cx="30%" cy="30%" r="70%">
+                            <stop offset="0%" stop-color="#ffffff"/>
+                            <stop offset="100%" stop-color="#cbd5e1"/>
+                        </radialGradient>
+                    </defs>
+                </svg>
+            `;
+            sm.title = "��������! �������, ����� �������";
+            sm.addEventListener('click', () => sm.remove());
+            document.getElementById('objects-container').appendChild(sm);
+        }
+
+        let activeWindow = null;
+        let offsetX = 0, offsetY = 0;
+
+        function bindWindowDrag(win) {
+            const header = win.querySelector('.window-header');
+            header.addEventListener('mousedown', (e) => {
+                if (e.target.classList.contains('win-dot')) return;
+                activeWindow = win;
+                offsetX = e.clientX - activeWindow.offsetLeft;
+                offsetY = e.clientY - activeWindow.offsetTop;
+                activeWindow.style.zIndex = 50;
+            });
+        }
+
+        document.querySelectorAll('.window').forEach(bindWindowDrag);
+
+        window.addEventListener('mousemove', (e) => {
+            if (!activeWindow) return;
+            activeWindow.style.left = `${e.clientX - offsetX}px`;
+            activeWindow.style.top = `${e.clientY - offsetY}px`;
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (activeWindow) {
+                activeWindow.style.zIndex = 5;
+                activeWindow = null;
+            }
+        });
+
+        function spawnWindow() {
+            const win = document.createElement('div');
+            win.className = 'window';
+            win.style.top = `${Math.random() * 200 + 40}px`;
+            win.style.left = `${Math.random() * 400 + 50}px`;
+            win.innerHTML = `
+                <div class="window-header">
+                    <span>?? �������</span>
+                    <div class="window-controls">
+                        <div class="win-dot dot-red" onclick="this.closest('.window').remove()"></div>
+                        <div class="win-dot dot-yellow"></div>
+                        <div class="win-dot dot-green"></div>
+                    </div>
+                </div>
+                <div class="window-body">
+                    ���� ������� �� ������� ����� ���� �������!
+                </div>
+            `;
+            bindWindowDrag(win);
+            document.getElementById('desktop').appendChild(win);
+        }
+
+        function openGithubModal() {
+            document.getElementById('github-modal').style.display = 'flex';
+        }
+        function closeGithubModal() {
+            document.getElementById('github-modal').style.display = 'none';
+        }
+        function downloadProjectFile() {
+            const blob = new Blob([document.documentElement.outerHTML], { type: 'text/html' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'index.html';
+            a.click();
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const speedMult = parseFloat(speedRange.value);
+
+            flakes.forEach(f => {
+                f.update(speedMult);
+                f.draw();
+            });
+
+            ctx.fillStyle = '#ffffff';
+            accumulatedSnow.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    </script>
+
+</body></html>
